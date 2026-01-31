@@ -1,0 +1,5 @@
+alembic upgrade head : aplica todas las migraciones pendientes hasta la última (“head”).
+alembic stamp base
+alembic current
+
+
