@@ -11,7 +11,7 @@ class UserModel(Base):
     username = Column(String(50), unique=True, nullable=False, index=True)
     email = Column(String(254), unique=True, nullable=True, index=True)
     password_hash = Column(String(255), nullable=False)
-    thelefone_number = Column(String(255), nullable=True)
+    telephone_number = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
     last_login_at = Column(DateTime, nullable=True)
