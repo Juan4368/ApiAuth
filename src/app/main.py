@@ -7,7 +7,7 @@ import time
 import webbrowser
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Response, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
@@ -43,10 +43,24 @@ def load_environment() -> None:
 
 
 def verify_docs_access(
+    request: Request,
     credentials: HTTPBasicCredentials = Depends(DOCS_SECURITY),
 ) -> None:
     username = os.getenv("DOCS_USERNAME", "")
     password = os.getenv("DOCS_PASSWORD", "")
+    allowed_ips = {
+        ip.strip()
+        for ip in os.getenv("DOCS_ALLOWED_IPS", "127.0.0.1,::1").split(",")
+        if ip.strip()
+    }
+
+    client_host = request.client.host if request.client else ""
+    if client_host not in allowed_ips:
+        # 404 to avoid exposing that docs exist.
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+
+    if not username or not password:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
 
     valid_user = secrets.compare_digest(credentials.username, username)
     valid_pass = secrets.compare_digest(credentials.password, password)
