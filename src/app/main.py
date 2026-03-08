@@ -25,7 +25,7 @@ import app
 from src.app.controller.auth_controller import get_current_user, router as auth_router
 from src.app.controller.role_controller import router as role_router
 
-DOCS_URL = "http://127.0.0.1:8001/docs"
+DOCS_HOST = "http://127.0.0.1:8001"
 DOCS_SECURITY = HTTPBasic()
 
 BROWSER_CANDIDATES = [
@@ -75,6 +75,8 @@ def verify_docs_access(
 
 def create_app() -> FastAPI:
     load_environment()
+    docs_path = os.getenv("DOCS_PATH", "/internal-docs")
+    openapi_path = os.getenv("DOCS_OPENAPI_PATH", "/internal-openapi.json")
 
     app = FastAPI(
         title="POS API",
@@ -116,7 +118,15 @@ def create_app() -> FastAPI:
     def root():
         return {"mensaje": "API POS en ejecucion"}
 
+    @app.get("/docs", include_in_schema=False)
+    def hidden_docs_default_path():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+
     @app.get("/openapi.json", include_in_schema=False)
+    def hidden_openapi_default_path():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+
+    @app.get(openapi_path, include_in_schema=False)
     def openapi_schema(_: None = Depends(verify_docs_access)):
         return get_openapi(
             title=app.title,
@@ -125,10 +135,10 @@ def create_app() -> FastAPI:
             routes=app.routes,
         )
 
-    @app.get("/docs", include_in_schema=False)
+    @app.get(docs_path, include_in_schema=False)
     def protected_docs(_: None = Depends(verify_docs_access)):
         return get_swagger_ui_html(
-            openapi_url="/openapi.json",
+            openapi_url=openapi_path,
             title=f"{app.title} - Swagger UI",
         )
 
@@ -140,6 +150,8 @@ app = create_app()
 
 def open_docs_in_browser() -> None:
     time.sleep(1)
+    docs_path = os.getenv("DOCS_PATH", "/internal-docs")
+    docs_url = f"{DOCS_HOST}{docs_path}"
 
     for path in BROWSER_CANDIDATES:
         if os.path.exists(path):
@@ -148,10 +160,10 @@ def open_docs_in_browser() -> None:
                 None,
                 webbrowser.BackgroundBrowser(path)
             )
-            webbrowser.get("chrome").open_new(DOCS_URL)
+            webbrowser.get("chrome").open_new(docs_url)
             return
 
-    webbrowser.open_new(DOCS_URL)
+    webbrowser.open_new(docs_url)
 
 
 def main() -> None:
