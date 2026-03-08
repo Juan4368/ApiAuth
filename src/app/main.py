@@ -11,18 +11,18 @@ from fastapi.middleware.cors import CORSMiddleware
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SRC_DIR = PROJECT_ROOT / "src"
+
 # Make sure imports work whether the app runs as a module or a script.
 for path in (PROJECT_ROOT, SRC_DIR):
     if str(path) not in sys.path:
         sys.path.append(str(path))
 
-
 import app
 from src.app.controller.auth_controller import get_current_user, router as auth_router
 from src.app.controller.role_controller import router as role_router
 
-
 DOCS_URL = "http://127.0.0.1:8001/docs"
+
 BROWSER_CANDIDATES = [
     "C://Program Files//Google//Chrome//Application//chrome.exe",
     "C://Program Files (x86)//Google//Chrome//Application//chrome.exe",
@@ -54,7 +54,7 @@ def create_app() -> FastAPI:
         "http://127.0.0.1:5173",
         "http://192.168.1.9:5173",
         "https://pos.seustech.com",
-        ]
+    ]
 
     app.add_middleware(
         CORSMiddleware,
@@ -64,11 +64,13 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    
     app.include_router(auth_router)
-    app.include_router(role_router, dependencies=[Depends(get_current_user)])
+    app.include_router(
+        role_router,
+        dependencies=[Depends(get_current_user)]
+    )
 
-    # Respuesta para preflight CORS (OPTIONS) sin autenticacion.
+    # Respuesta para preflight CORS (OPTIONS) sin autenticación
     @app.options("/{full_path:path}")
     def preflight_handler(full_path: str) -> Response:
         return Response(status_code=200)
@@ -88,7 +90,11 @@ def open_docs_in_browser() -> None:
 
     for path in BROWSER_CANDIDATES:
         if os.path.exists(path):
-            webbrowser.register("chrome", None, webbrowser.BackgroundBrowser(path))
+            webbrowser.register(
+                "chrome",
+                None,
+                webbrowser.BackgroundBrowser(path)
+            )
             webbrowser.get("chrome").open_new(DOCS_URL)
             return
 
@@ -96,7 +102,10 @@ def open_docs_in_browser() -> None:
 
 
 def main() -> None:
-    threading.Thread(target=open_docs_in_browser, daemon=True).start()
+    threading.Thread(
+        target=open_docs_in_browser,
+        daemon=True
+    ).start()
 
     import uvicorn
 
