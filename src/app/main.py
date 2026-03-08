@@ -54,6 +54,7 @@ def create_app() -> FastAPI:
         "http://127.0.0.1:5173",
         "http://192.168.1.9:5173",
         "https://pos.seustech.com",
+        "http://192.168.1.9:4173"
     ]
 
     app.add_middleware(
