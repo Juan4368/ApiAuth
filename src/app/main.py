@@ -1,13 +1,17 @@
 ﻿from pathlib import Path
 import os
+import secrets
 import sys
 import threading
 import time
 import webbrowser
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Response
+from fastapi import Depends, FastAPI, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.openapi.utils import get_openapi
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SRC_DIR = PROJECT_ROOT / "src"
@@ -22,6 +26,7 @@ from src.app.controller.auth_controller import get_current_user, router as auth_
 from src.app.controller.role_controller import router as role_router
 
 DOCS_URL = "http://127.0.0.1:8001/docs"
+DOCS_SECURITY = HTTPBasic()
 
 BROWSER_CANDIDATES = [
     "C://Program Files//Google//Chrome//Application//chrome.exe",
@@ -33,8 +38,25 @@ BROWSER_CANDIDATES = [
 
 
 def load_environment() -> None:
-    env_path = Path(__file__).resolve().parent / ".env"
+    env_path = PROJECT_ROOT / ".env"
     load_dotenv(env_path)
+
+
+def verify_docs_access(
+    credentials: HTTPBasicCredentials = Depends(DOCS_SECURITY),
+) -> None:
+    username = os.getenv("DOCS_USERNAME", "")
+    password = os.getenv("DOCS_PASSWORD", "")
+
+    valid_user = secrets.compare_digest(credentials.username, username)
+    valid_pass = secrets.compare_digest(credentials.password, password)
+
+    if not (valid_user and valid_pass):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Basic"},
+        )
 
 
 def create_app() -> FastAPI:
@@ -44,9 +66,9 @@ def create_app() -> FastAPI:
         title="POS API",
         version="1.0.0",
         description="API para la gestion de pedidos",
-        docs_url="/docs",
+        docs_url=None,
         redoc_url=None,
-        openapi_url="/openapi.json",
+        openapi_url=None,
     )
 
     allowed_origins = [
@@ -71,7 +93,7 @@ def create_app() -> FastAPI:
         dependencies=[Depends(get_current_user)]
     )
 
-    # Respuesta para preflight CORS (OPTIONS) sin autenticación
+    # Respuesta para preflight CORS (OPTIONS) sin autenticacion
     @app.options("/{full_path:path}")
     def preflight_handler(full_path: str) -> Response:
         return Response(status_code=200)
@@ -79,6 +101,22 @@ def create_app() -> FastAPI:
     @app.get("/")
     def root():
         return {"mensaje": "API POS en ejecucion"}
+
+    @app.get("/openapi.json", include_in_schema=False)
+    def openapi_schema(_: None = Depends(verify_docs_access)):
+        return get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes,
+        )
+
+    @app.get("/docs", include_in_schema=False)
+    def protected_docs(_: None = Depends(verify_docs_access)):
+        return get_swagger_ui_html(
+            openapi_url="/openapi.json",
+            title=f"{app.title} - Swagger UI",
+        )
 
     return app
 
