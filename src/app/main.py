@@ -6,7 +6,7 @@ import time
 import webbrowser
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -48,17 +48,31 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json",
     )
 
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://192.168.1.9:5173",
+        "https://api.seustech.com",
+    ]
+
     app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+        CORSMiddleware,
+        allow_origins=allowed_origins,
+        # DevTunnels cambia el subdominio; permitir cualquier túnel 5173.
+        allow_origin_regex=r"https://.*-5173\.use\.devtunnels\.ms",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     
     app.include_router(auth_router)
     app.include_router(role_router, dependencies=[Depends(get_current_user)])
+
+    # Respuesta para preflight CORS (OPTIONS) sin autenticacion.
+    @app.options("/{full_path:path}")
+    def preflight_handler(full_path: str) -> Response:
+        return Response(status_code=200)
 
     @app.get("/")
     def root():
